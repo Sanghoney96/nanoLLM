@@ -16,3 +16,51 @@ By focusing on simplicity and modularity, nanoLLM aims to provide a **clean and 
 - **Extensible component design for easily integrating custom models and tokenizers**
 - **Minimal external dependencies to keep the framework lightweight**
 - **A clear and structured training pipeline suitable for educational and experimental use**
+
+## Installation
+
+This project uses **uv** for dependency management.
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/<your-username>/nanollm.git
+cd nanollm
+```
+
+### 2. Install dependencies
+
+Install all dependencies and create a virtual environment:
+
+```bash
+uv sync
+```
+
+This command will:
+
+* create a virtual environment (`.venv`)
+* install all required dependencies from `pyproject.toml`
+* reproduce the exact environment defined by `uv.lock`
+
+### 3. Activate the environment
+
+If you want to manually activate the environment:
+
+```bash
+source .venv/bin/activate
+```
+
+---
+
+## Environment Reproducibility
+
+The environment is fully defined by:
+
+* `pyproject.toml`
+* `uv.lock`
+
+Any user can reproduce the exact same environment with:
+
+```bash
+uv sync
+```
