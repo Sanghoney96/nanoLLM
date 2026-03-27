@@ -5,7 +5,7 @@ import torch.nn.functional as F
 
 
 class MultiHeadAttention(nn.Module):
-    def __init__(self, d_model, n_heads, dropout=0.0, causal=False):
+    def __init__(self, d_model, n_heads, causal=False):
         super().__init__()
 
         assert d_model % n_heads == 0, "d_model must be divisible by n_heads"
@@ -19,8 +19,6 @@ class MultiHeadAttention(nn.Module):
         self.W_k = nn.Linear(self.d_model, self.d_model, bias=False)
         self.W_v = nn.Linear(self.d_model, self.d_model, bias=False)
         self.W_o = nn.Linear(self.d_model, self.d_model, bias=False)
-
-        self.dropout = nn.Dropout(dropout)
 
     def split_heads(self, x):
         """
@@ -57,7 +55,6 @@ class MultiHeadAttention(nn.Module):
             scores = scores.masked_fill(~mask, float("-inf"))
 
         attn_weights = F.softmax(scores, dim=-1)
-        attn_weights = self.dropout(attn_weights)
         out = torch.matmul(attn_weights, v)
 
         return out
@@ -96,7 +93,6 @@ class MultiHeadAttention(nn.Module):
         heads = self.scaled_dot_product_attention(q, k, v, mask)
 
         concat = self.concat_heads(heads)
-
         out = self.W_o(concat)
 
         return out
