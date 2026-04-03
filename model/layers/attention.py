@@ -5,7 +5,8 @@ import torch.nn.functional as F
 
 
 class MultiHeadAttention(nn.Module):
-    def __init__(self, d_model, n_heads, causal=False):
+
+    def __init__(self, d_model, n_heads, dropout=0.0, causal=False, block_size=1024):
         super().__init__()
 
         assert d_model % n_heads == 0, "d_model must be divisible by n_heads"
@@ -14,11 +15,20 @@ class MultiHeadAttention(nn.Module):
         self.n_heads = n_heads
         self.head_dim = d_model // n_heads
         self.causal = causal
+        self.block_size = block_size
 
-        self.W_q = nn.Linear(self.d_model, self.d_model, bias=False)
-        self.W_k = nn.Linear(self.d_model, self.d_model, bias=False)
-        self.W_v = nn.Linear(self.d_model, self.d_model, bias=False)
-        self.W_o = nn.Linear(self.d_model, self.d_model, bias=False)
+        if causal:
+            self.register_buffer(
+                "causal_mask",
+                torch.tril(torch.ones(block_size, block_size, dtype=torch.bool)).view(
+                    1, 1, block_size, block_size
+                ),
+            )
+
+        self.W_qkv = nn.Linear(self.d_model, self.d_model * 3, bias=True)
+        self.W_o = nn.Linear(self.d_model, self.d_model, bias=True)
+        self.attn_dropout = nn.Dropout(dropout)
+        self.res_dropout = nn.Dropout(dropout)
 
     def split_heads(self, x):
         """
@@ -52,9 +62,10 @@ class MultiHeadAttention(nn.Module):
         scores = scores / math.sqrt(self.head_dim)
 
         if mask is not None:
-            scores = scores.masked_fill(~mask, float("-inf"))
+            scores = scores.masked_fill(~mask, -1e9)
 
         attn_weights = F.softmax(scores, dim=-1)
+        attn_weights = self.attn_dropout(attn_weights)
         out = torch.matmul(attn_weights, v)
 
         return out
@@ -66,9 +77,8 @@ class MultiHeadAttention(nn.Module):
 
         input_len = x.shape[1]
 
-        q = self.W_q(x)
-        k = self.W_k(x)
-        v = self.W_v(x)
+        qkv = self.W_qkv(x)
+        q, k, v = qkv.chunk(3, dim=-1)
 
         q = self.split_heads(q)
         k = self.split_heads(k)
@@ -78,9 +88,7 @@ class MultiHeadAttention(nn.Module):
 
         # causal mask
         if self.causal:
-            causal_mask = self.generate_causal_mask(input_len, x.device)
-            causal_mask = causal_mask.unsqueeze(0).unsqueeze(0)
-            mask = causal_mask
+            mask = self.causal_mask[:, :, :input_len, :input_len]
 
         # padding mask
         if padding_mask is not None:
@@ -94,5 +102,6 @@ class MultiHeadAttention(nn.Module):
 
         concat = self.concat_heads(heads)
         out = self.W_o(concat)
+        out = self.res_dropout(out)
 
         return out

@@ -15,20 +15,17 @@ class GPTBlock(nn.Module):
 
         self.layernorm_1 = nn.LayerNorm(self.d_model)
         self.layernorm_2 = nn.LayerNorm(self.d_model)
-        self.mha = MultiHeadAttention(self.d_model, self.n_heads, causal=True)
-        self.ffn = GPTFeedForward(self.d_model)
-        self.dropout = nn.Dropout(dropout)
+        self.mha = MultiHeadAttention(self.d_model, self.n_heads, dropout, causal=True)
+        self.ffn = GPTFeedForward(self.d_model, dropout)
 
     def forward(self, x):
         out = self.layernorm_1(x)
         out = self.mha(out)
-        out = self.dropout(out)
 
         x = out + x
 
         out = self.layernorm_2(x)
         out = self.ffn(out)
-        out = self.dropout(out)
 
         return out + x
 
@@ -65,7 +62,8 @@ class GPT2(nn.Module):
         )
 
         self.layernorm = nn.LayerNorm(self.d_model)
-        self.out_proj = nn.Linear(self.d_model, self.vocab_size)
+        self.out_proj = nn.Linear(self.d_model, self.vocab_size, bias=False)
+        self.out_proj.weight = self.token_emb.weight
 
     def forward(self, x):
         "input shape : (batch_size, context_size)"
