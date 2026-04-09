@@ -6,7 +6,7 @@ import torch.nn.functional as F
 
 class MultiHeadAttention(nn.Module):
 
-    def __init__(self, d_model, n_heads, dropout=0.0, causal=False, block_size=1024):
+    def __init__(self, d_model, n_heads, context_size, dropout=0.0, causal=False):
         super().__init__()
 
         assert d_model % n_heads == 0, "d_model must be divisible by n_heads"
@@ -15,14 +15,14 @@ class MultiHeadAttention(nn.Module):
         self.n_heads = n_heads
         self.head_dim = d_model // n_heads
         self.causal = causal
-        self.block_size = block_size
+        self.context_size = context_size
 
         if causal:
             self.register_buffer(
                 "causal_mask",
-                torch.tril(torch.ones(block_size, block_size, dtype=torch.bool)).view(
-                    1, 1, block_size, block_size
-                ),
+                torch.tril(
+                    torch.ones(context_size, context_size, dtype=torch.bool)
+                ).view(1, 1, context_size, context_size),
             )
 
         self.W_qkv = nn.Linear(self.d_model, self.d_model * 3, bias=True)

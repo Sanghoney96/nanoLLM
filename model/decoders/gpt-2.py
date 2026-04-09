@@ -4,19 +4,23 @@ import torch.nn as nn
 import torch.nn.functional as F
 from model.layers.attention import MultiHeadAttention
 from model.layers.feedforward import GPTFeedForward
+from config.model_config import GPT2Config
 
 
 class GPTBlock(nn.Module):
-    def __init__(self, n_heads, d_model, dropout=0.0):
+    def __init__(self, d_model, n_heads, context_size, dropout=0.0):
         super().__init__()
 
         self.d_model = d_model
         self.n_heads = n_heads
         self.head_dim = d_model // n_heads
+        self.context_size = context_size
 
         self.layernorm_1 = nn.LayerNorm(self.d_model)
         self.layernorm_2 = nn.LayerNorm(self.d_model)
-        self.mha = MultiHeadAttention(self.d_model, self.n_heads, dropout, causal=True)
+        self.mha = MultiHeadAttention(
+            self.d_model, self.n_heads, self.context_size, dropout, causal=True
+        )
         self.ffn = GPTFeedForward(self.d_model, dropout)
 
     def forward(self, x):
@@ -33,38 +37,36 @@ class GPTBlock(nn.Module):
 
 class GPT2(nn.Module):
 
-    def __init__(
-        self,
-        n_head,
-        d_model,
-        context_size,
-        vocab_size,
-        num_blocks,
-        dropout=0.0,
-        padding_idx=1,
-    ):
+    def __init__(self, config):
         super().__init__()
 
-        self.n_head = n_head
-        self.d_model = d_model
-        self.context_size = context_size
-        self.vocab_size = vocab_size
-        self.padding_idx = padding_idx
-        self.num_blocks = num_blocks
+        self.config = config
+
+        self.n_head = config.n_head
+        self.d_model = config.d_model
+        self.context_size = config.context_size
+        self.vocab_size = config.vocab_size
+        self.padding_idx = config.padding_idx
+        self.num_blocks = config.num_blocks
 
         self.token_emb = nn.Embedding(
-            self.vocab_size, self.d_model, padding_idx=self.padding_idx
+            config.vocab_size, config.d_model, padding_idx=config.padding_idx
         )
-        self.pos_emb = nn.Embedding(self.context_size, self.d_model)
+        self.pos_emb = nn.Embedding(config.context_size, config.d_model)
 
-        self.dropout = nn.Dropout(dropout)
+        self.dropout = nn.Dropout(config.dropout)
 
         self.blocks = nn.ModuleList(
-            [GPTBlock(self.n_head, self.d_model, dropout) for _ in range(num_blocks)]
+            [
+                GPTBlock(
+                    config.d_model, config.n_head, config.context_size, config.dropout
+                )
+                for _ in range(config.num_blocks)
+            ]
         )
 
-        self.layernorm = nn.LayerNorm(self.d_model)
-        self.out_proj = nn.Linear(self.d_model, self.vocab_size, bias=False)
+        self.layernorm = nn.LayerNorm(config.d_model)
+        self.out_proj = nn.Linear(config.d_model, config.vocab_size, bias=False)
 
         # weight initialization
         self.apply(self._init_weights)
@@ -75,7 +77,7 @@ class GPT2(nn.Module):
                 nn.init.normal_(
                     param,
                     mean=0.0,
-                    std=0.02 / math.sqrt(2 * self.num_blocks),
+                    std=0.02 / math.sqrt(2 * config.num_blocks),
                 )
 
         self.out_proj.weight = self.token_emb.weight
@@ -106,26 +108,14 @@ class GPT2(nn.Module):
         return out
 
 
-# 하이퍼파라미터 (작게 설정)
-batch_size = 4
-context_size = 128
-vocab_size = 100
-d_model = 64
-n_head = 4
-num_blocks = 2
+# load model config
+config = GPT2Config()
 
 # 모델 생성
-model = GPT2(
-    n_head=n_head,
-    d_model=d_model,
-    context_size=context_size,
-    vocab_size=vocab_size,
-    num_blocks=num_blocks,
-    dropout=0.1,
-)
+model = GPT2(config)
 
 # 더미 입력 생성
-x = torch.randint(0, vocab_size, (batch_size, context_size))
+x = torch.randint(0, config.vocab_size, (8, config.context_size))
 
 # forward 테스트
 logits = model(x)
