@@ -4,7 +4,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from model.layers.attention import MultiHeadAttention
 from model.layers.feedforward import GPTFeedForward
-from config.model_config import GPT2Config
 
 
 class GPTBlock(nn.Module):
@@ -106,19 +105,3 @@ class GPT2(nn.Module):
         out = self.layernorm(out)
         out = self.out_proj(out)
         return out
-
-
-# load model config
-config = GPT2Config()
-
-# 모델 생성
-model = GPT2(config)
-
-# 더미 입력 생성
-x = torch.randint(0, config.vocab_size, (8, config.context_size))
-
-# forward 테스트
-logits = model(x)
-
-print("input shape:", x.shape)
-print("output shape:", logits.shape)
